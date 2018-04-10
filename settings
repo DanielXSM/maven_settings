@@ -455,5 +455,20 @@ hosted：宿主仓库
 -------------------------------------------------------仓库类型--------------------------------------------------------------------------------
 
 
+依赖管理
+
+由于每个子模块的功能不同，如果直接继承父模块，可能会将不需要的多余jar包也继承过来。如果父模块使用<dependencyManagement>，子模块可以选择性的继承
+
+[html] view plain copy
+<dependencyManagement>  
+  <dependencies>  
+    <dependency>  
+      <groupId>org.springframework</groupId>  
+      <artifactId>spring-core</artifactId>  
+      <version>4.3.6.RELEASE</version>  
+    </dependency>  
+  </dependencies>  
+</dependencyManagement>  
+
 
 
