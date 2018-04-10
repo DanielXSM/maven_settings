@@ -1,0 +1,140 @@
+经过一天的钻研和研究，对maven私服又有了进一步的了解(date:2018-4-10)
+我们可以搭建自己的私服，在linux服务器上进行操作
+ 下载
+ # wget https://sonatype-download.global.ssl.fastly.net/nexus/oss/nexus-2.11.2-03-bundle.tar.gz
+ 解压
+ # cd /usr/local
+ # mkdir nexus
+ # tar -xzvf nexus-2.11.2-03-bundle.tar.gz -C nexus
+ # cd nexus
+ # ls
+   nexus-2.11.2-03   sonatype-work
+ 修改配置文件
+ # cd nexus-2.11.2-03/conf
+ # vi nexus.properties
+ #Jetty section
+ application-port=8081      ##修改Jetty端口号
+ # nexus section
+ nexus-work=${bundleBasedir}/../sonatype-work/nexus　　
+
+
+ 保存以上修改
+ 
+ 配置用户
+
+# vi /usr/local/nexus/nexus-2.11.2-03/bin/nexus
+
+#RUN_AS_USER=
+
+RUN_AS_USER=root  --------------------->这个是你服务器的登陆名
+
+保存以上修改
+
+若有设置防火墙，需前往修改防火墙配置并重启防火墙
+即时生效，重启失效
+#开启 service iptables start #关闭 service iptables stop 
+
+重启生效
+#开启 chkconfig iptables on #关闭 chkconfig iptables off 
+
+
+启动nexus
+
+# /usr/local/nexus/nexus-2.11.2-03/bin/nexus start
+
+****************************************
+
+WARNING - NOT RECOMMENDED TO RUN AS ROOT
+
+****************************************
+
+Starting Nexus OSS...
+
+Started Nexus OSS.
+
+在浏览器打开:http://ip:8081/nexus,登录：用户名admin  默认密码：admin123   登录：用户名deployment  默认密码：deployment123   
+
+
+就这样私服算是搭建好了-----------我们可以很开心的拿来做实验了----------------------------------
+
+首先是 maven 的settinsg 文件
+server主要是用来配置用户名和密码的
+
+<!--配置服务端的一些设置。一些设置如安全证书不应该和pom.xml一起分发。这种类型的信息应该存在于构建服务器上的settings.xml文件中。-->  
+ <servers>  
+  <!--服务器元素包含配置服务器时需要的信息 -->  
+  <server>  
+   <!--这是server的id（注意不是用户登陆的id），该id与distributionManagement中repository元素的id相匹配。-->  
+   <id>snapshots</id>  
+   <!--鉴权用户名。鉴权用户名和鉴权密码表示服务器认证所需要的登录名和密码。 -->  
+   <username>my_login</username>  
+   <!--鉴权密码 。鉴权用户名和鉴权密码表示服务器认证所需要的登录名和密码。密码加密功能已被添加到2.1.0 +。详情请访问密码加密页面-->  
+   <password>my_password</password>  
+   <!--鉴权时使用的私钥位置。和前两个元素类似，私钥位置和私钥密码指定了一个私钥的路径（默认是${user.home}/.ssh/id_dsa）以及如果需要的话，一个密语。将来passphrase和password元素可能会被提取到外部，但目前它们必须在settings.xml文件以纯文本的形式声明。 -->  
+   <privateKey>${usr.home}/.ssh/id_dsa</privateKey>  
+   <!--鉴权时使用的私钥密码。-->  
+   <passphrase>some_passphrase</passphrase>  
+   <!--文件被创建时的权限。如果在部署的时候会创建一个仓库文件或者目录，这时候就可以使用权限（permission）。这两个元素合法的值是一个三位数字，其对应了unix文件系统的权限，如664，或者775。 -->  
+   <filePermissions>664</filePermissions>  
+   <!--目录被创建时的权限。 -->  
+   <directoryPermissions>775</directoryPermissions>  
+  </server>  
+ </servers>  
+----------------------------------------------------servers例子-----------------------------------------------------
+<servers>		
+		<!--项目发布版本上传-->
+		<server>
+			<!--这是server的id（注意不是用户登陆的id），该id与distributionManagement中repository元素的id相匹配。-->
+			<id>releases</id>
+			<!--用户名-->
+			<username>deployment</username>
+			<!--密码-->
+			<password>deployment123</password>
+		</server>
+		<server>
+		<!--项目快照版本上传-->
+				<id>snapshots</id>
+			<!--用户名-->
+			<username>deployment</username>
+			<!--密码-->
+			<password>deployment123</password>
+		</server>	
+	</servers>
+---------------------------------------------------servers例子--------------------------------------------------------------
+
+----------------------------------------------------pom.xml里需要配置的---------------------------------------------------------------------
+至于什么时候会保存到稳定的releases里，什么时候保存到snapshots里需要根据的是pom.xml里的这个配置
+<groupId>com.zdps</groupId>
+    <artifactId>maven_test</artifactId>
+    <version>2.0-releases</version>-------------------根据版本信息后缀显而易见的可以看到--------------<version>0.0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+<distributionManagement>
+<!--存储稳定版本的地方 -->
+        <repository>
+        <id>releases</id>
+        <name>Local Nexus Repository</name>
+        <url>http://${repositories.host}/nexus/content/repositories/releases/</url>
+    </repository>
+    <!--存储快照的地方 -->
+        <snapshotRepository>
+            <id>snapshots</id>
+            <name>Local Nexus Repository</name>
+            <url>http://${repositories.host}/nexus/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+    ----------------------------------------------------pom.xml里需要配置的---------------------------------------------------------------------
+------------------------------------------------------镜像文件的设置------------------------------------------------------------------
+
+<mirrors>
+        <!--镜像 -->
+        <mirror>
+            <!--该镜像的唯一标识符。id用来区分不同的mirror元素。-->
+            <id>mirrorId</id>
+			<!--被镜像的服务器的id。-->
+            <mirrorOf>central</mirrorOf>
+			<!--该镜像的URL。构建系统会优先考虑使用该URL，而非使用默认的服务器URL。-->
+            <url>http://192.168.1.206:8081/nexus/content/groups/public/</url>
+        </mirror>
+    </mirrors>
+-----------------------------------------------------镜像文件的设置-------------------------------------------------------------------
